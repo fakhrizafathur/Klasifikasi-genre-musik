@@ -1,0 +1,94 @@
+{% extends "bootstrap/base.html" %} {% block title %}Prediksi Genre Musik{% endblock %} {% block head %} {{ super() }} <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.min.css" /> <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" />
+{% endblock %} {% block content %}
+<div class="background"></div>
+<div class="title">Ungkap Genre Musik Yang Didengarkan</div>
+<div class="content container full-height-center">
+  <div class="card col-md-8 mx-auto">
+    <div class="card-body">
+      <p class="h3 white-label text-center">Masukan Fitur Audio Dari Lagu Yang Akan Diprediksi</p>
+      <form id="prediction-form" class="row g-3" novalidate>
+        {{ form.csrf_token }}
+        <div class="col-md-6">{{ form.duration_ms.label(class="form-label white-label") }} {{ form.duration_ms(class="form-control", placeholder="Durasi dalam milidetik") }}</div>
+        <div class="col-md-6">{{ form.danceability.label(class="form-label white-label") }} {{ form.danceability(class="form-control", placeholder="Rentang nilai 0-1 (contoh : 0.12)") }}</div>
+        <div class="col-md-6">{{ form.energy.label(class="form-label white-label") }} {{ form.energy(class="form-control", placeholder="Rentang nilai 0-1 (contoh : 0.12)") }}</div>
+        <div class="col-md-6">{{ form.loudness.label(class="form-label white-label") }} {{ form.loudness(class="form-control", placeholder="Rentang nilai -65-0 (contoh : -12.16)") }}</div>
+        <div class="col-md-6">{{ form.mode.label(class="form-label white-label") }} {{ form.mode(class="form-control", placeholder="0 = minor dan 1 = mayor") }}</div>
+        <div class="col-md-6">{{ form.speechiness.label(class="form-label white-label") }} {{ form.speechiness(class="form-control", placeholder="Rentang nilai 0-1 (contoh : 0.12)") }}</div>
+        <div class="col-md-6">{{ form.acousticness.label(class="form-label white-label") }} {{ form.acousticness(class="form-control", placeholder="Rentang nilai 0-1 (contoh : 0.12)") }}</div>
+        <div class="col-md-6">{{ form.instrumentalness.label(class="form-label white-label") }} {{ form.instrumentalness(class="form-control", placeholder="Rentang nilai 0-1 (contoh : 0.12)") }}</div>
+        <div class="col-md-6">{{ form.valence.label(class="form-label white-label") }} {{ form.valence(class="form-control", placeholder="Rentang nilai 0-1 (contoh : 0.12)") }}</div>
+        <div class="col-md-6">{{ form.time_signature.label(class="form-label white-label") }} {{ form.time_signature(class="form-control", placeholder="Rentang nilai 3-8 (contoh : 5)") }}</div>
+        {% for field in form %} {% for error in field.errors %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endfor %} {% endfor %}
+        <div class="col-12 text-center">{{ form.submit(class="btn btn-primary submit-button") }}</div>
+      </form>
+      <div id="prediction-result" class="prediction-result"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Help Button and Tooltip -->
+<button id="help-button" class="help-button">
+  <i class="bi bi-question-circle"></i>
+</button>
+<div id="help-tooltip" class="help-tooltip">
+  <p>Untuk menggunakan halaman ini, masukkan fitur audio dari lagu (diperoleh dari Spotify API) yang ingin Anda prediksi pada form di bawah ini:</p>
+  <ul>
+    <li><strong>Duration (ms):</strong> Durasi lagu dalam milidetik.</li>
+    <li><strong>Danceability:</strong> Menggambarkan seberapa cocok suatu lagu untuk menari berdasarkan kombinasi elemen musik. Diukur dari nilai 0,0 hingga 1,0</li>
+    <li><strong>Energy:</strong> Diukur dari 0,0 hingga 1,0 dan menunjukkan seberapa intens dan aktif suatu trek.</li>
+    <li><strong>Loudness:</strong> Kenyaringan keseluruhan trek dalam desibel (dB). Nilai kenyaringan dirata-ratakan di seluruh trek dan berguna untuk membandingkan kenyaringan relatif trek.</li>
+    <li><strong>Mode:</strong> Mode menunjukkan modalitas (mayor atau minor) suatu lagu, jenis tangga nada yang menjadi asal isi melodinya. (0 = minor, 1 = major).</li>
+    <li><strong>Speechiness:</strong>Speechiness mendeteksi keberadaan kata-kata yang diucapkan dalam sebuah trek. Diukur dari nilai 0,0 hingga 1,0</li>
+    <li><strong>Acousticness:</strong> Ukuran dari 0,0 hingga 1,0 menunjukkan seberapa besar kemungkinan lagu ini bersifat akustik.</li>
+    <li><strong>Instrumentalness:</strong> Memprediksi apakah suatu lagu tidak mengandung vokal. Semakin dekat nilai instrumentalitas ke 1,0, semakin besar kemungkinan lagu tersebut tidak berisi konten vokal.</li>
+    <li><strong>Valence:</strong> Ukuran dari 0,0 hingga 1,0 yang menggambarkan kepositifan musik yang disampaikan oleh sebuah lagu.</li>
+    <li><strong>Time Signature:</strong> Perkiraan tanda birama. Tanda birama berkisar dari 3 hingga 7 yang menunjukkan tanda birama "3/4", hingga "7/4".</li>
+  </ul>
+</div>
+<script>
+  document.getElementById("prediction-form").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const form = event.target;
+    if (form.checkValidity() === false) {
+      event.stopPropagation();
+      form.classList.add("was-validated");
+    } else {
+      const formData = new FormData(this);
+      fetch("/predict", {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          const resultDiv = document.getElementById("prediction-result");
+          resultDiv.innerHTML = `<div class="alert alert-success" role="alert">Genre Lagu Tersebut Yaitu : ${data.prediction}</div>`;
+        })
+        .catch((error) => {
+          const resultDiv = document.getElementById("prediction-result");
+          resultDiv.innerHTML = `<div class="alert alert-danger" role="alert">Pengisian Form Tidak Tepat. Klik Tombol (?) Untuk Mengetahui Aturan Pengisian Form.</div>`;
+          console.error("Error:", error);
+        });
+    }
+  });
+  document.getElementById("help-button").addEventListener("click", function () {
+    var tooltip = document.getElementById("help-tooltip");
+    if (tooltip.style.display === "none" || tooltip.style.display === "") {
+      tooltip.style.display = "block";
+    } else {
+      tooltip.style.display = "none";
+    }
+  });
+
+  document.addEventListener("click", function (event) {
+    var helpButton = document.getElementById("help-button");
+    var helpTooltip = document.getElementById("help-tooltip");
+
+    if (!helpButton.contains(event.target) && !helpTooltip.contains(event.target)) {
+      helpTooltip.style.display = "none";
+    }
+  });
+</script>
+{% endblock %}
